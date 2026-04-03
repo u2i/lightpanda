@@ -319,14 +319,18 @@ defmodule Lightpanda do
     path
   end
 
+  @default_profiles %{
+    default: [args: ~w(serve --host 127.0.0.1 --port 9222)]
+  }
+
   @doc false
   def config_for!(profile) when is_atom(profile) do
     Application.get_env(:lightpanda, profile) ||
+      @default_profiles[profile] ||
       raise ArgumentError, """
       unknown lightpanda profile. Make sure the profile is defined in your config/config.exs file:
 
           config :lightpanda,
-            version: "#{latest_version()}",
             #{profile}: [
               args: ~w(serve --host 127.0.0.1 --port 9222)
             ]
