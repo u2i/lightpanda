@@ -44,12 +44,12 @@ defmodule Lightpanda do
     "x86_64-macos" => "806bcccd2fa6445e4c06addf78abc7834833c5fbf977ea1f2d222fdc2bd77c3d"
   }
 
+  @latest_version Mix.Project.config()[:version]
+
   @doc """
   Returns the latest known version of the Lightpanda binary.
   """
-  def latest_version do
-    Lightpanda.MixProject.project()[:version]
-  end
+  def latest_version, do: @latest_version
 
   @doc """
   Returns the configured version of the Lightpanda binary.
