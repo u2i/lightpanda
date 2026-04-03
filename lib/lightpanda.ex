@@ -44,7 +44,10 @@ defmodule Lightpanda do
     "x86_64-macos" => "806bcccd2fa6445e4c06addf78abc7834833c5fbf977ea1f2d222fdc2bd77c3d"
   }
 
-  @latest_version Mix.Project.config()[:version]
+  # The Lightpanda binary version this package tracks.
+  # Strip any pre-release suffix (e.g. "0.2.8-1" -> "0.2.8") since
+  # the suffix is for our package patches, not the upstream binary.
+  @latest_version Mix.Project.config()[:version] |> String.split("-") |> hd()
 
   @doc """
   Returns the latest known version of the Lightpanda binary.
