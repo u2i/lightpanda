@@ -29,7 +29,7 @@ defmodule Lightpanda.MixProject do
   defp deps do
     [
       {:castore, ">= 0.0.0"},
-      {:ex_doc, ">= 0.0.0", only: :docs}
+      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 
@@ -40,7 +40,8 @@ defmodule Lightpanda.MixProject do
       links: %{
         "GitHub" => @source_url,
         "Lightpanda" => "https://github.com/lightpanda-io/browser"
-      }
+      },
+      files: ~w(lib mix.exs README.md LICENSE)
     ]
   end
 
