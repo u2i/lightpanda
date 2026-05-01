@@ -8,7 +8,7 @@ defmodule Lightpanda do
   Configure in your `config/config.exs`:
 
       config :lightpanda,
-        version: "0.2.8",
+        version: "0.2.9",
         default: [
           args: ~w(serve --host 127.0.0.1 --port 9222)
         ]
@@ -21,7 +21,7 @@ defmodule Lightpanda do
       automatically downloaded and placed inside the `_build` directory.
 
     * `:release` - which release to track. Either a version string like
-      `"0.2.8"` (default, derived from `:version`) or `"nightly"` to
+      `"0.2.9"` (default, derived from `:version`) or `"nightly"` to
       track the nightly build.
 
   ## Profiles
@@ -38,10 +38,10 @@ defmodule Lightpanda do
   # SHA-256 checksums for the release binaries, keyed by target.
   # Update these when bumping the version in mix.exs.
   @checksums %{
-    "aarch64-linux" => "9f54f2cc31b0dadd867ba06ecce59f8aa59f7876394798e97882aea680b5ad19",
-    "aarch64-macos" => "429c36619dc34535e54e1f00aafe9d40741bef9ccf292262afd74ed73f69057b",
-    "x86_64-linux" => "8e3a5e04cf508699990a78a0a8686ea3398912cd9891fda90513429b89230300",
-    "x86_64-macos" => "806bcccd2fa6445e4c06addf78abc7834833c5fbf977ea1f2d222fdc2bd77c3d"
+    "aarch64-linux" => "8ca1dbd9afbac368466e95a6087cb2885ca84cdd3c62987179b8b270be120227",
+    "aarch64-macos" => "f64559b189976f1e9401a6c567c4479cf1d9f83a1944b6b049843177cdcb25b5",
+    "x86_64-linux" => "54beb96ed3f639becc4fd263a6ba0a69b60e5e7e03ef6fe50d9c6347a3ea395d",
+    "x86_64-macos" => "36fbc45e33295f4dfb3ccbe4f1b8ed85774a6f0399292485dcd7e40ddca4a99e"
   }
 
   # The Lightpanda binary version this package tracks.
