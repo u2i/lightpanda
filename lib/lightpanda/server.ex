@@ -74,11 +74,8 @@ defmodule Lightpanda.Server do
     port_number = Keyword.get(opts, :port) || find_available_port()
     extra_args = Keyword.get(opts, :extra_args, [])
 
+    Lightpanda.ensure_installed!()
     bin = Lightpanda.bin_path()
-
-    unless File.exists?(bin) do
-      Lightpanda.install()
-    end
 
     args =
       ["serve", "--host", host, "--port", to_string(port_number)] ++ extra_args

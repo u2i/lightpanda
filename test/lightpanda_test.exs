@@ -26,4 +26,10 @@ defmodule LightpandaTest do
   test "bin_version returns version after install" do
     assert Lightpanda.bin_version() == Lightpanda.latest_version()
   end
+
+  test "default_base_url contains $version and $target placeholders" do
+    url = Lightpanda.default_base_url()
+    assert String.contains?(url, "$version")
+    assert String.contains?(url, "$target")
+  end
 end

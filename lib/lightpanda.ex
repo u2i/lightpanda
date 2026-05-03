@@ -21,8 +21,17 @@ defmodule Lightpanda do
       automatically downloaded and placed inside the `_build` directory.
 
     * `:release` - which release to track. Either a version string like
-      `"0.2.9"` (default, derived from `:version`) or `"nightly"` to
+      `"0.2.10"` (default, derived from `:version`) or `"nightly"` to
       track the nightly build.
+
+    * `:url` - the base URL template to download the binary from.
+      Defaults to `Lightpanda.default_base_url/0`. Supports the
+      placeholders `$version` and `$target` (e.g.
+      `"https://my-mirror.example.com/lightpanda/$version/lightpanda-$target"`).
+
+    * `:version_check` - set to `false` to skip the boot-time check
+      that warns when the installed binary's version doesn't match the
+      configured `:version`. Defaults to `true`.
 
   ## Profiles
 
@@ -45,9 +54,9 @@ defmodule Lightpanda do
   }
 
   # The Lightpanda binary version this package tracks.
-  # Strip any pre-release suffix (e.g. "0.2.8-1" -> "0.2.8") since
-  # the suffix is for our package patches, not the upstream binary.
-  @latest_version Mix.Project.config()[:version] |> String.split("-") |> hd()
+  # This is decoupled from the Hex package version — bump it when
+  # upstream cuts a new browser release (and update @checksums).
+  @latest_version "0.2.9"
 
   @doc """
   Returns the latest known version of the Lightpanda binary.
@@ -124,11 +133,23 @@ defmodule Lightpanda do
   Returns the exit status.
   """
   def install_and_run(profile, extra_args) do
-    unless File.exists?(bin_path()) do
-      install()
-    end
-
+    ensure_installed!()
     run(profile, extra_args)
+  end
+
+  @doc """
+  Ensures the Lightpanda binary is installed.
+
+  Concurrent callers are deduplicated via `Lightpanda.Installer` so
+  that parallel `install_and_run/2` invocations (or `Lightpanda.Server`
+  startups) only download once.
+  """
+  def ensure_installed! do
+    if File.exists?(bin_path()) do
+      :ok
+    else
+      Lightpanda.Installer.install()
+    end
   end
 
   @doc """
@@ -156,6 +177,17 @@ defmodule Lightpanda do
   end
 
   @doc """
+  Returns the default URL template used to fetch the binary.
+
+  Supports the `$version` and `$target` placeholders. Configure via
+  `config :lightpanda, :url, "..."` to redirect downloads at a mirror
+  or local cache.
+  """
+  def default_base_url do
+    "https://github.com/lightpanda-io/browser/releases/download/$version/lightpanda-$target"
+  end
+
+  @doc """
   Installs the Lightpanda binary.
   """
   def install do
@@ -164,17 +196,7 @@ defmodule Lightpanda do
     target = target()
     name = "lightpanda-#{target}"
 
-    base_url = "https://github.com/lightpanda-io/browser/releases/download"
-
-    urls =
-      case release do
-        "nightly" ->
-          ["#{base_url}/nightly/#{name}"]
-
-        v ->
-          # Lightpanda tags are inconsistent — some use "v" prefix, some don't
-          ["#{base_url}/#{v}/#{name}", "#{base_url}/v#{v}/#{name}"]
-      end
+    urls = release_urls(release, target)
 
     bin = bin_path()
 
@@ -193,6 +215,56 @@ defmodule Lightpanda do
     after
       File.rm_rf!(tmp_dir)
     end
+  end
+
+  # Build the candidate URL list for a given release. Templates the
+  # configured (or default) base URL; for stable releases we also try
+  # the legacy `v`-prefixed form because Lightpanda's tag naming has
+  # been inconsistent across releases.
+  defp release_urls(release, target) do
+    template = Application.get_env(:lightpanda, :url, default_base_url())
+
+    case release do
+      "nightly" ->
+        [render_url(template, "nightly", target)]
+
+      v ->
+        [render_url(template, v, target), render_url(template, "v" <> v, target)]
+        |> Enum.uniq()
+    end
+  end
+
+  defp render_url(template, version, target) do
+    template
+    |> String.replace("$version", version)
+    |> String.replace("$target", target)
+  end
+
+  @doc false
+  # Compares the installed binary's version to the configured version
+  # and logs a warning on mismatch. Called from the application boot
+  # sequence; opt out via `config :lightpanda, :version_check, false`.
+  def maybe_warn_version_mismatch do
+    if Application.get_env(:lightpanda, :version_check, true) do
+      configured = configured_version()
+      installed = bin_version()
+
+      cond do
+        is_nil(installed) ->
+          :ok
+
+        installed == configured ->
+          :ok
+
+        true ->
+          Logger.warning("""
+          Outdated lightpanda binary. Expected #{configured}, got #{installed}.
+          Run `mix lightpanda.install` to update.
+          """)
+      end
+    end
+
+    :ok
   end
 
   defp verify_checksum!(file, target) do
