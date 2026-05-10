@@ -268,24 +268,31 @@ defmodule Lightpanda do
   end
 
   defp verify_checksum!(file, target) do
-    case @checksums[target] do
-      nil ->
-        Logger.warning("no checksum available for target #{target}, skipping verification")
+    cond do
+      Application.get_env(:lightpanda, :verify_checksum, true) == false ->
+        # Opted out via config — used when pointing at a fork build whose
+        # binaries don't match the upstream-version checksums baked in
+        # below. Caller is responsible for source trust.
+        Logger.info("checksum verification disabled via config, skipping")
 
-      expected ->
+      checksum = @checksums[target] ->
         actual = file |> File.read!() |> then(&:crypto.hash(:sha256, &1)) |> Base.encode16(case: :lower)
 
-        if actual != expected do
+        if actual != checksum do
           raise """
           checksum mismatch for lightpanda-#{target}
 
-            expected: #{expected}
+            expected: #{checksum}
             got:      #{actual}
 
           This could mean the download was corrupted or tampered with.
-          If you've configured a custom version, update the checksums in the Lightpanda module.
+          If you've configured a custom version, update the checksums in the Lightpanda module
+          or set `config :lightpanda, :verify_checksum, false` to opt out.
           """
         end
+
+      true ->
+        Logger.warning("no checksum available for target #{target}, skipping verification")
     end
   end
 
