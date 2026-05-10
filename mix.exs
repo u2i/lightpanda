@@ -1,7 +1,7 @@
 defmodule Lightpanda.MixProject do
   use Mix.Project
 
-  @version "0.2.10-rc.1"
+  @version "0.2.10-rc.2"
   @source_url "https://github.com/u2i/lightpanda"
 
   def project do
@@ -11,7 +11,7 @@ defmodule Lightpanda.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      description: "Mix tasks for installing and invoking the Lightpanda headless browser",
+      description: "Mix tasks for installing and invoking the Lightpanda headless browser (u2i fork build with cookie-on-WS-upgrade fix)",
       package: package(),
       docs: docs(),
       source_url: @source_url,
@@ -41,7 +41,7 @@ defmodule Lightpanda.MixProject do
         "GitHub" => @source_url,
         "Lightpanda" => "https://github.com/lightpanda-io/browser"
       },
-      files: ~w(lib mix.exs README.md LICENSE)
+      files: ~w(lib mix.exs README.md CHANGELOG.md LICENSE)
     ]
   end
 
@@ -49,7 +49,8 @@ defmodule Lightpanda.MixProject do
     [
       main: "Lightpanda",
       source_url: @source_url,
-      source_ref: "v#{@version}"
+      source_ref: "v#{@version}",
+      extras: ["README.md", "CHANGELOG.md"]
     ]
   end
 end

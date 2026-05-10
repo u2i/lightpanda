@@ -3,31 +3,48 @@ defmodule Lightpanda do
   Lightpanda is an installer and runner for the
   [Lightpanda](https://github.com/lightpanda-io/browser) headless browser.
 
+  By default this package fetches binaries from the [u2i fork build][u2i]
+  of Lightpanda, which carries an extra patch sending session cookies on
+  the WebSocket upgrade request — required for cookie-authenticated WS
+  endpoints (e.g. Phoenix LiveView). To use upstream binaries instead,
+  override `:url` (see below).
+
+  [u2i]: https://github.com/u2i/lightpanda-browser
+
   ## Configuration
 
   Configure in your `config/config.exs`:
 
       config :lightpanda,
-        version: "0.2.9",
+        version: "fork-2026-05-10",
         default: [
           args: ~w(serve --host 127.0.0.1 --port 9222)
         ]
 
   ## Global options
 
-    * `:version` - the expected lightpanda version.
+    * `:version` - the expected lightpanda binary version. Defaults to
+      the fork release tag this package tracks.
 
     * `:path` - the path to the lightpanda binary. By default it is
       automatically downloaded and placed inside the `_build` directory.
 
-    * `:release` - which release to track. Either a version string like
-      `"0.2.10"` (default, derived from `:version`) or `"nightly"` to
-      track the nightly build.
+    * `:release` - which release to track. Either a version string
+      (default, derived from `:version`) or `"nightly"` to track the
+      nightly build (only available against upstream's URL template).
 
     * `:url` - the base URL template to download the binary from.
-      Defaults to `Lightpanda.default_base_url/0`. Supports the
-      placeholders `$version` and `$target` (e.g.
-      `"https://my-mirror.example.com/lightpanda/$version/lightpanda-$target"`).
+      Defaults to `Lightpanda.default_base_url/0` (u2i fork releases).
+      To use upstream binaries:
+
+          config :lightpanda,
+            url: "https://github.com/lightpanda-io/browser/releases/download/$version/lightpanda-$target"
+
+      Supports the placeholders `$version` and `$target`.
+
+    * `:verify_checksum` - set to `false` to skip SHA-256 verification
+      of the downloaded binary. Useful when pointing `:url` at a build
+      whose checksums aren't baked into this package. Defaults to `true`.
 
     * `:version_check` - set to `false` to skip the boot-time check
       that warns when the installed binary's version doesn't match the
@@ -45,18 +62,18 @@ defmodule Lightpanda do
   require Logger
 
   # SHA-256 checksums for the release binaries, keyed by target.
-  # Update these when bumping the version in mix.exs.
-  @checksums %{
-    "aarch64-linux" => "8ca1dbd9afbac368466e95a6087cb2885ca84cdd3c62987179b8b270be120227",
-    "aarch64-macos" => "f64559b189976f1e9401a6c567c4479cf1d9f83a1944b6b049843177cdcb25b5",
-    "x86_64-linux" => "54beb96ed3f639becc4fd263a6ba0a69b60e5e7e03ef6fe50d9c6347a3ea395d",
-    "x86_64-macos" => "36fbc45e33295f4dfb3ccbe4f1b8ed85774a6f0399292485dcd7e40ddca4a99e"
-  }
+  # Empty by default — the u2i fork releases don't yet have published
+  # checksums (the upstream-version SHAs in 0.2.10-rc.1 no longer
+  # apply because the fork rebuilds binaries with the cookie-on-WS-
+  # upgrade patch). Verification is skipped with a warning until this
+  # map is populated. Set `config :lightpanda, :verify_checksum, false`
+  # to silence the warning explicitly.
+  @checksums %{}
 
-  # The Lightpanda binary version this package tracks.
-  # This is decoupled from the Hex package version — bump it when
-  # upstream cuts a new browser release (and update @checksums).
-  @latest_version "0.2.9"
+  # The Lightpanda binary release this package tracks. Defaults to
+  # the latest u2i fork release tag. Decoupled from the Hex package
+  # version — bump when a new fork build is cut.
+  @latest_version "fork-2026-05-10"
 
   @doc """
   Returns the latest known version of the Lightpanda binary.
@@ -179,12 +196,16 @@ defmodule Lightpanda do
   @doc """
   Returns the default URL template used to fetch the binary.
 
-  Supports the `$version` and `$target` placeholders. Configure via
-  `config :lightpanda, :url, "..."` to redirect downloads at a mirror
-  or local cache.
+  Defaults to the u2i fork releases (https://github.com/u2i/lightpanda-browser),
+  which include the cookie-on-WebSocket-upgrade patch needed by cookie-
+  authenticated WS endpoints (e.g. Phoenix LiveView).
+
+  Supports `$version` and `$target` placeholders. Override via
+  `config :lightpanda, :url, "..."` to point at upstream's releases
+  or a local mirror.
   """
   def default_base_url do
-    "https://github.com/lightpanda-io/browser/releases/download/$version/lightpanda-$target"
+    "https://github.com/u2i/lightpanda-browser/releases/download/$version/lightpanda-$target"
   end
 
   @doc """
