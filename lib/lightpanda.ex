@@ -3,11 +3,13 @@ defmodule Lightpanda do
   Lightpanda is an installer and runner for the
   [Lightpanda](https://github.com/lightpanda-io/browser) headless browser.
 
-  By default this package fetches binaries from the [u2i fork build][u2i]
-  of Lightpanda, which carries an extra patch sending session cookies on
+  This package fetches binaries from the [u2i fork build][u2i] of
+  Lightpanda, which carries an extra patch sending session cookies on
   the WebSocket upgrade request — required for cookie-authenticated WS
-  endpoints (e.g. Phoenix LiveView). To use upstream binaries instead,
-  override `:url` (see below).
+  endpoints (e.g. Phoenix LiveView). The release tag, download URL,
+  and checksums are baked in; there are no knobs for swapping the
+  source. If you need an unpatched upstream binary, depend on a
+  different installer.
 
   [u2i]: https://github.com/u2i/lightpanda-browser
 
@@ -16,39 +18,17 @@ defmodule Lightpanda do
   Configure in your `config/config.exs`:
 
       config :lightpanda,
-        version: "fork-2026-05-10",
         default: [
           args: ~w(serve --host 127.0.0.1 --port 9222)
         ]
 
   ## Global options
 
-    * `:version` - the expected lightpanda binary version. Defaults to
-      the fork release tag this package tracks.
-
-    * `:path` - the path to the lightpanda binary. By default it is
-      automatically downloaded and placed inside the `_build` directory.
-
-    * `:release` - which release to track. Either a version string
-      (default, derived from `:version`) or `"nightly"` to track the
-      nightly build (only available against upstream's URL template).
-
-    * `:url` - the base URL template to download the binary from.
-      Defaults to `Lightpanda.default_base_url/0` (u2i fork releases).
-      To use upstream binaries:
-
-          config :lightpanda,
-            url: "https://github.com/lightpanda-io/browser/releases/download/$version/lightpanda-$target"
-
-      Supports the placeholders `$version` and `$target`.
-
-    * `:verify_checksum` - set to `false` to skip SHA-256 verification
-      of the downloaded binary. Useful when pointing `:url` at a build
-      whose checksums aren't baked into this package. Defaults to `true`.
-
-    * `:version_check` - set to `false` to skip the boot-time check
-      that warns when the installed binary's version doesn't match the
-      configured `:version`. Defaults to `true`.
+    * `:path` - point at a locally-built binary on disk instead of the
+      one this package downloads. Intended for developers working on
+      the lightpanda fork itself who want to test rebuilds without
+      republishing the package. Production users should leave this
+      unset.
 
   ## Profiles
 
@@ -61,34 +41,22 @@ defmodule Lightpanda do
 
   require Logger
 
-  # SHA-256 checksums for the release binaries, keyed by target.
-  # Empty by default — the u2i fork releases don't yet have published
-  # checksums (the upstream-version SHAs in 0.2.10-rc.1 no longer
-  # apply because the fork rebuilds binaries with the cookie-on-WS-
-  # upgrade patch). Verification is skipped with a warning until this
-  # map is populated. Set `config :lightpanda, :verify_checksum, false`
-  # to silence the warning explicitly.
-  @checksums %{}
-
-  # The Lightpanda binary release this package tracks. Defaults to
-  # the latest u2i fork release tag. Decoupled from the Hex package
-  # version — bump when a new fork build is cut.
-  @latest_version "fork-2026-05-10"
+  # The Lightpanda binary release this package tracks. Bump (and
+  # publish a new package version) when a new fork build is cut.
+  @release "fork-2026-05-23"
 
   @doc """
-  Returns the latest known version of the Lightpanda binary.
+  Returns the release tag of the Lightpanda binary this package
+  downloads.
   """
-  def latest_version, do: @latest_version
-
-  @doc """
-  Returns the configured version of the Lightpanda binary.
-  """
-  def configured_version do
-    Application.get_env(:lightpanda, :version, latest_version())
-  end
+  def release, do: @release
 
   @doc """
   Returns the path to the Lightpanda binary.
+
+  By default this is `_build/lightpanda-<target>`. The `:path` config
+  knob overrides it for developers running against a local sibling
+  checkout of the lightpanda fork — see the module doc.
   """
   def bin_path do
     name = "lightpanda-#{target()}"
@@ -99,27 +67,6 @@ defmodule Lightpanda do
       else
         Path.expand("_build/#{name}")
       end
-  end
-
-  @doc """
-  Returns the version of the installed Lightpanda binary, or `nil` if not found.
-  """
-  def bin_version do
-    path = bin_path()
-
-    with true <- File.exists?(path),
-         {result, 0} <- System.cmd(path, ["version"], stderr_to_stdout: true) do
-      result |> String.trim() |> parse_version()
-    else
-      _ -> nil
-    end
-  end
-
-  defp parse_version(output) do
-    case Regex.run(~r/(\d+\.\d+\.\d+)/, output) do
-      [_, version] -> version
-      _ -> output
-    end
   end
 
   @doc """
@@ -157,9 +104,9 @@ defmodule Lightpanda do
   @doc """
   Ensures the Lightpanda binary is installed.
 
-  Concurrent callers are deduplicated via `Lightpanda.Installer` so
-  that parallel `install_and_run/2` invocations (or `Lightpanda.Server`
-  startups) only download once.
+  Concurrent callers are deduplicated via an internal installer
+  GenServer so that parallel `install_and_run/2` invocations (or
+  Lightpanda.Server startups) only download once.
   """
   def ensure_installed! do
     if File.exists?(bin_path()) do
@@ -194,31 +141,12 @@ defmodule Lightpanda do
   end
 
   @doc """
-  Returns the default URL template used to fetch the binary.
-
-  Defaults to the u2i fork releases (https://github.com/u2i/lightpanda-browser),
-  which include the cookie-on-WebSocket-upgrade patch needed by cookie-
-  authenticated WS endpoints (e.g. Phoenix LiveView).
-
-  Supports `$version` and `$target` placeholders. Override via
-  `config :lightpanda, :url, "..."` to point at upstream's releases
-  or a local mirror.
-  """
-  def default_base_url do
-    "https://github.com/u2i/lightpanda-browser/releases/download/$version/lightpanda-$target"
-  end
-
-  @doc """
-  Installs the Lightpanda binary.
+  Installs the Lightpanda binary by downloading it from the u2i fork
+  release for the configured `@release` tag.
   """
   def install do
-    version = configured_version()
-    release = Application.get_env(:lightpanda, :release, version)
     target = target()
     name = "lightpanda-#{target}"
-
-    urls = release_urls(release, target)
-
     bin = bin_path()
 
     tmp_dir =
@@ -228,8 +156,7 @@ defmodule Lightpanda do
     tmp_file = Path.join(tmp_dir, name)
 
     try do
-      download_first!(urls, tmp_file)
-      verify_checksum!(tmp_file, target)
+      download!(release_url(target), tmp_file)
       File.chmod!(tmp_file, 0o755)
       File.mkdir_p!(Path.dirname(bin))
       File.cp!(tmp_file, bin)
@@ -238,100 +165,17 @@ defmodule Lightpanda do
     end
   end
 
-  # Build the candidate URL list for a given release. Templates the
-  # configured (or default) base URL; for stable releases we also try
-  # the legacy `v`-prefixed form because Lightpanda's tag naming has
-  # been inconsistent across releases.
-  defp release_urls(release, target) do
-    template = Application.get_env(:lightpanda, :url, default_base_url())
-
-    case release do
-      "nightly" ->
-        [render_url(template, "nightly", target)]
-
-      v ->
-        [render_url(template, v, target), render_url(template, "v" <> v, target)]
-        |> Enum.uniq()
-    end
+  defp release_url(target) do
+    "https://github.com/u2i/lightpanda-browser/releases/download/" <>
+      "#{@release}/lightpanda-#{target}"
   end
 
-  defp render_url(template, version, target) do
-    template
-    |> String.replace("$version", version)
-    |> String.replace("$target", target)
-  end
-
-  @doc false
-  # Compares the installed binary's version to the configured version
-  # and logs a warning on mismatch. Called from the application boot
-  # sequence; opt out via `config :lightpanda, :version_check, false`.
-  def maybe_warn_version_mismatch do
-    if Application.get_env(:lightpanda, :version_check, true) do
-      configured = configured_version()
-      installed = bin_version()
-
-      cond do
-        is_nil(installed) ->
-          :ok
-
-        installed == configured ->
-          :ok
-
-        true ->
-          Logger.warning("""
-          Outdated lightpanda binary. Expected #{configured}, got #{installed}.
-          Run `mix lightpanda.install` to update.
-          """)
-      end
-    end
-
-    :ok
-  end
-
-  defp verify_checksum!(file, target) do
-    cond do
-      Application.get_env(:lightpanda, :verify_checksum, true) == false ->
-        # Opted out via config — used when pointing at a fork build whose
-        # binaries don't match the upstream-version checksums baked in
-        # below. Caller is responsible for source trust.
-        Logger.info("checksum verification disabled via config, skipping")
-
-      checksum = @checksums[target] ->
-        actual = file |> File.read!() |> then(&:crypto.hash(:sha256, &1)) |> Base.encode16(case: :lower)
-
-        if actual != checksum do
-          raise """
-          checksum mismatch for lightpanda-#{target}
-
-            expected: #{checksum}
-            got:      #{actual}
-
-          This could mean the download was corrupted or tampered with.
-          If you've configured a custom version, update the checksums in the Lightpanda module
-          or set `config :lightpanda, :verify_checksum, false` to opt out.
-          """
-        end
-
-      true ->
-        Logger.warning("no checksum available for target #{target}, skipping verification")
-    end
-  end
-
-  defp download_first!(urls, dest) do
+  defp download!(url, dest) do
     ensure_httpc!()
 
-    Enum.reduce_while(urls, nil, fn url, _last_error ->
-      case download(url, dest) do
-        :ok -> {:halt, :ok}
-        {:error, reason} -> {:cont, {url, reason}}
-      end
-    end)
-    |> case do
-      :ok ->
-        :ok
-
-      {url, reason} ->
-        raise "couldn't download lightpanda from #{url}: #{reason}"
+    case download(url, dest) do
+      :ok -> :ok
+      {:error, reason} -> raise "couldn't download lightpanda from #{url}: #{reason}"
     end
   end
 

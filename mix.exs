@@ -1,7 +1,7 @@
 defmodule Lightpanda.MixProject do
   use Mix.Project
 
-  @version "0.2.10-rc.2"
+  @version "0.3.0"
   @source_url "https://github.com/u2i/lightpanda"
 
   def project do

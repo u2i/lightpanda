@@ -3,8 +3,6 @@ defmodule Lightpanda.Application do
   use Application
 
   def start(_type, _args) do
-    Lightpanda.maybe_warn_version_mismatch()
-
     children = [
       Lightpanda.Installer
     ]

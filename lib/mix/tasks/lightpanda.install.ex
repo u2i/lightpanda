@@ -5,10 +5,8 @@ defmodule Mix.Tasks.Lightpanda.Install do
       $ mix lightpanda.install
       $ mix lightpanda.install --if-missing
 
-  By default, it installs #{Lightpanda.latest_version()} but you
-  can configure it in your config files:
-
-      config :lightpanda, version: "#{Lightpanda.latest_version()}"
+  Installs `#{Lightpanda.release()}` from the u2i fork releases. The
+  release tag is baked into the package; bump the dep to upgrade.
 
   ## Options
 
