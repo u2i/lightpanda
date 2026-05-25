@@ -43,7 +43,7 @@ defmodule Lightpanda do
 
   # The Lightpanda binary release this package tracks. Bump (and
   # publish a new package version) when a new fork build is cut.
-  @release "fork-2026-05-23"
+  @release "fork-2026-05-25"
 
   @doc """
   Returns the release tag of the Lightpanda binary this package
@@ -70,26 +70,78 @@ defmodule Lightpanda do
   end
 
   @doc """
-  Returns the platform target string (e.g., `"aarch64-macos"`).
+  Returns the platform target string (e.g., `"aarch64-macos"`,
+  `"x86_64-linux"`, `"x86_64-linux-musl"`).
+
+  On Linux, the libc flavor is detected at runtime via
+  `detect_libc/1` so we pick the right release asset for glibc-based
+  distros (Debian, Ubuntu, RHEL) vs musl-based ones (Alpine,
+  distroless-static, Void).
   """
   def target do
+    target(%{
+      arch: detect_arch(),
+      os: :os.type(),
+      libc: detect_libc()
+    })
+  end
+
+  @doc false
+  # Deterministic core for `target/0`. Public for testing — callers in
+  # production should use `target/0`. The map shape mirrors what
+  # `target/0` derives from the runtime so the test suite can exercise
+  # every (arch, os, libc) combination without touching the host.
+  def target(%{arch: arch, os: os, libc: libc}) do
     arch_str =
-      case :erlang.system_info(:system_architecture) |> List.to_string() do
+      case arch do
         "aarch64" <> _ -> "aarch64"
         "arm" <> _ -> "aarch64"
         "x86_64" <> _ -> "x86_64"
-        _ -> raise "unsupported architecture: #{:erlang.system_info(:system_architecture)}"
+        _ -> raise "unsupported architecture: #{arch}"
       end
 
-    os_str =
-      case :os.type() do
-        {:unix, :darwin} -> "macos"
-        {:unix, :linux} -> "linux"
-        {_, os} -> raise "unsupported OS: #{os}"
-      end
+    case os do
+      {:unix, :darwin} ->
+        # macOS: no musl variant; always Mach-O against the system libc.
+        "#{arch_str}-macos"
 
-    "#{arch_str}-#{os_str}"
+      {:unix, :linux} ->
+        case libc do
+          :gnu -> "#{arch_str}-linux"
+          :musl -> "#{arch_str}-linux-musl"
+        end
+
+      {_, name} ->
+        raise "unsupported OS: #{name}"
+    end
   end
+
+  @doc """
+  Detects the host's libc flavor. Returns `:musl` if a musl dynamic
+  linker is present in any of the probed directories (default
+  `/lib`), otherwise `:gnu`.
+
+  ## Options
+    * `:libc_probe_dirs` — list of directories to scan for an
+      `ld-musl-*.so.1` loader. Exposed for testing; production
+      callers should pass no opts.
+  """
+  @spec detect_libc(keyword) :: :gnu | :musl
+  def detect_libc(opts \\ []) do
+    probe_dirs = Keyword.get(opts, :libc_probe_dirs, ["/lib"])
+
+    musl_loader? =
+      Enum.any?(probe_dirs, fn dir ->
+        case File.ls(dir) do
+          {:ok, entries} -> Enum.any?(entries, &String.match?(&1, ~r/^ld-musl-.*\.so\.1$/))
+          _ -> false
+        end
+      end)
+
+    if musl_loader?, do: :musl, else: :gnu
+  end
+
+  defp detect_arch, do: :erlang.system_info(:system_architecture) |> List.to_string()
 
   @doc """
   Installs the binary if missing, then runs it with the given profile and extra arguments.

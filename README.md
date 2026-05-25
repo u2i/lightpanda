@@ -18,10 +18,24 @@ different installer.
 ```elixir
 def deps do
   [
-    {:lightpanda, "~> 0.3.0", only: :test}
+    {:lightpanda, "~> 0.3", only: :test}
   ]
 end
 ```
+
+### Supported platforms
+
+| Platform                | Asset                              |
+|-------------------------|------------------------------------|
+| macOS (Apple Silicon)   | `lightpanda-aarch64-macos`         |
+| Linux x86_64 (glibc)    | `lightpanda-x86_64-linux`          |
+| Linux aarch64 (glibc)   | `lightpanda-aarch64-linux`         |
+| Linux x86_64 (musl)     | `lightpanda-x86_64-linux-musl`     |
+| Linux aarch64 (musl)    | `lightpanda-aarch64-linux-musl`    |
+
+On Linux the libc flavor is detected at runtime by looking for a musl
+dynamic linker (`/lib/ld-musl-*.so.1`). Alpine, distroless-static, and
+other musl-based distros automatically pick the `-linux-musl` asset.
 
 ## Quick start
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.1-rc.0 — 2026-05-25
+
+- **Alpine / musl support.** On Linux, `Lightpanda.target/0` now
+  detects the host's libc flavor and returns `<arch>-linux-musl` when
+  a musl dynamic linker (`/lib/ld-musl-*.so.1`) is present. The
+  installer downloads the matching `lightpanda-<arch>-linux-musl`
+  asset from the fork release. glibc-based distros are unaffected.
+- Public helpers `Lightpanda.target/1` and `Lightpanda.detect_libc/1`
+  are now documented; both accept deterministic input so consumers
+  (and the test suite) can probe target selection without poking the
+  host filesystem.
+- Bumped fork release tag to `fork-2026-05-25` — same lightpanda
+  binary content as `fork-2026-05-23`, rebuilt to add the
+  `*-linux-musl` artifacts.
+
 ## 0.3.0 — 2026-05-23
 
 - **Track upstream Lightpanda `v0.3.0`.** Bumped to fork release
