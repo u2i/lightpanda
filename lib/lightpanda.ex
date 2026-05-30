@@ -25,10 +25,23 @@ defmodule Lightpanda do
   ## Global options
 
     * `:path` - point at a locally-built binary on disk instead of the
-      one this package downloads. Intended for developers working on
-      the lightpanda fork itself who want to test rebuilds without
-      republishing the package. Production users should leave this
-      unset.
+      one this package downloads. Takes a full file path, not a
+      directory. Intended for developers working on the lightpanda
+      fork itself who want to test rebuilds without republishing the
+      package. Production users should leave this unset.
+
+    * `:install_dir` - directory where the binary is installed and
+      looked for. The package always picks the filename
+      (`lightpanda-<target>`), so consumers set only the directory.
+      Relative paths are resolved against the current working
+      directory (`File.cwd!/0`) — e.g. `".browsers"` resolves to
+      `<project_root>/.browsers/lightpanda-<target>`, matching the
+      convention used by Chrome for Testing and Puppeteer. May also
+      be set via the `LIGHTPANDA_INSTALL_DIR` environment variable;
+      the config key takes precedence when both are present.
+
+  Precedence: `:path` (full file) overrides `:install_dir` (directory),
+  which overrides the default location under `_build/`.
 
   ## Profiles
 
@@ -43,7 +56,7 @@ defmodule Lightpanda do
 
   # The Lightpanda binary release this package tracks. Bump (and
   # publish a new package version) when a new fork build is cut.
-  @release "fork-2026-05-23"
+  @release "fork-2026-05-30"
 
   @doc """
   Returns the release tag of the Lightpanda binary this package
@@ -54,19 +67,34 @@ defmodule Lightpanda do
   @doc """
   Returns the path to the Lightpanda binary.
 
-  By default this is `_build/lightpanda-<target>`. The `:path` config
-  knob overrides it for developers running against a local sibling
-  checkout of the lightpanda fork — see the module doc.
+  By default this is `_build/lightpanda-<target>`. Override via
+  `:path` (full file path) or `:install_dir` /
+  `LIGHTPANDA_INSTALL_DIR` (directory; the package supplies the
+  per-target filename). See the module doc for precedence.
   """
   def bin_path do
-    name = "lightpanda-#{target()}"
-
     Application.get_env(:lightpanda, :path) ||
-      if Code.ensure_loaded?(Mix.Project) do
-        Path.join(Path.dirname(Mix.Project.build_path()), name)
-      else
-        Path.expand("_build/#{name}")
-      end
+      Path.join(install_dir(), "lightpanda-#{target()}")
+  end
+
+  defp install_dir do
+    configured =
+      Application.get_env(:lightpanda, :install_dir) ||
+        System.get_env("LIGHTPANDA_INSTALL_DIR")
+
+    case configured do
+      nil -> default_install_dir()
+      "" -> default_install_dir()
+      dir -> Path.expand(dir, File.cwd!())
+    end
+  end
+
+  defp default_install_dir do
+    if Code.ensure_loaded?(Mix.Project) do
+      Path.dirname(Mix.Project.build_path())
+    else
+      Path.expand("_build")
+    end
   end
 
   @doc """

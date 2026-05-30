@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.3.1 — 2026-05-30
+
+- **Track upstream Lightpanda `v0.3.1`.** Bumped fork release tag to
+  `fork-2026-05-30`, rebased the cookie-on-WS-upgrade patch onto
+  upstream `v0.3.1`. The patch was reworked to use the new
+  `exec.context.global` API (a `GlobalScope` union of `.frame` /
+  `.worker`) since upstream refactored `WebSocket.init` to take an
+  `Execution` instead of a `*Frame`. Picks up upstream improvements
+  while keeping cookie-authenticated WS upgrades working.
+- **Expanded test coverage on the cookie patch.** The fork now ships
+  four additional regression tests alongside the original happy-path:
+  path-scoped cookies don't leak across paths, `SameSite=Strict` still
+  attaches on same-site upgrades, empty cookie jar produces no
+  `Cookie:` header, and multiple matching cookies are joined per RFC
+  6265 §5.4.
+- **New `:install_dir` config + `LIGHTPANDA_INSTALL_DIR` env var.**
+  Override the directory the binary is installed and looked for in,
+  while the package keeps owning the per-target filename
+  (`lightpanda-<target>`). Relative paths resolve against
+  `File.cwd!/0`, so `config :lightpanda, install_dir: ".browsers"`
+  lands the binary under `<project_root>/.browsers/` — matching the
+  layout used by Chrome for Testing / Puppeteer and making
+  Docker/CI cache mapping a single-directory affair. Default
+  behaviour is unchanged (`_build/lightpanda-<target>`). Precedence:
+  `:path` (full file) > `:install_dir` config > `LIGHTPANDA_INSTALL_DIR`
+  env var > default.
+
 ## 0.3.0 — 2026-05-23
 
 - **Track upstream Lightpanda `v0.3.0`.** Bumped to fork release
