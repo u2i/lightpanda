@@ -151,8 +151,18 @@ defmodule Lightpanda.Server do
 
   @impl true
   def terminate(_reason, %{os_port: port} = _state) do
-    if Port.info(port) != nil do
-      Port.close(port)
+    case Port.info(port) do
+      info when is_list(info) ->
+        # Port.close sends SIGTERM, but Lightpanda ignores it and keeps
+        # running. Kill the OS process explicitly with SIGKILL first.
+        if os_pid = Keyword.get(info, :os_pid) do
+          System.cmd("kill", ["-9", to_string(os_pid)], stderr_to_stdout: true)
+        end
+
+        Port.close(port)
+
+      nil ->
+        :ok
     end
 
     :ok
