@@ -23,12 +23,30 @@ defmodule Lightpanda.Server do
   use GenServer
   require Logger
 
-  defstruct [:port_number, :host, :os_port, :ready]
+  defstruct [:port_number, :host, :os_port, :os_pid, :ready]
 
   @ready_timeout 10_000
 
   @doc """
   Starts a Lightpanda server process.
+
+  Options:
+
+    * `:host` - the host to bind to (default: `"127.0.0.1"`)
+    * `:port` - the port to bind to (default: automatically assigned)
+    * `:extra_args` - additional CLI arguments to pass to the binary
+    * `:name` - GenServer name registration
+    * `:wrapper_script` - optional path to a wrapper shell script that
+      re-executes the binary as its first argument. When supplied the
+      Port spawns the wrapper (not the binary directly) with
+      `:use_stdio` enabled.  The wrapper must print `PID: <n>` on
+      stdout before the child is killed so this server can capture the
+      OS pid for `kill -9` in `terminate/2`, and must kill the child
+      when its stdin closes.  This allows the Lightpanda process to be
+      cleaned up even when the BEAM is killed with SIGKILL (in which
+      case `terminate/2` never runs but the Port's stdin pipe closes at
+      the OS level).  See `priv/run_command.sh` in the wallabidi
+      library for a reference implementation.
   """
   def start_link(opts \\ []) do
     {name, opts} = Keyword.pop(opts, :name)
@@ -76,17 +94,24 @@ defmodule Lightpanda.Server do
 
     Lightpanda.ensure_installed!()
     bin = Lightpanda.bin_path()
+    wrapper = Keyword.get(opts, :wrapper_script)
 
-    args =
-      ["serve", "--host", host, "--port", to_string(port_number)] ++ extra_args
+    lp_args = ["serve", "--host", host, "--port", to_string(port_number)] ++ extra_args
+
+    {executable, port_args, extra_port_opts} =
+      if wrapper do
+        {wrapper, [bin | lp_args], [:use_stdio]}
+      else
+        {bin, lp_args, []}
+      end
 
     os_port =
-      Port.open({:spawn_executable, bin}, [
+      Port.open({:spawn_executable, to_charlist(executable)}, [
         :binary,
         :stderr_to_stdout,
-        :exit_status,
-        args: args
-      ])
+        :exit_status
+        | extra_port_opts
+      ] ++ [args: port_args])
 
     state = %__MODULE__{
       port_number: port_number,
@@ -139,6 +164,17 @@ defmodule Lightpanda.Server do
     end
   end
 
+  def handle_info({port, {:data, data}}, %{os_port: port, os_pid: nil} = state) do
+    state =
+      case Regex.run(~r/PID:\s*(\d+)/, data) do
+        [_, pid_str] -> %{state | os_pid: String.to_integer(pid_str)}
+        nil -> state
+      end
+
+    Logger.debug("[lightpanda] #{String.trim(data)}")
+    {:noreply, state}
+  end
+
   def handle_info({port, {:data, data}}, %{os_port: port} = state) do
     Logger.debug("[lightpanda] #{String.trim(data)}")
     {:noreply, state}
@@ -150,20 +186,25 @@ defmodule Lightpanda.Server do
   end
 
   @impl true
-  def terminate(_reason, %{os_port: port} = _state) do
-    case Port.info(port) do
-      info when is_list(info) ->
-        # Port.close sends SIGTERM, but Lightpanda ignores it and keeps
-        # running. Kill the OS process explicitly with SIGKILL first.
-        if os_pid = Keyword.get(info, :os_pid) do
-          System.cmd("kill", ["-9", to_string(os_pid)], stderr_to_stdout: true)
+  def terminate(_reason, %{os_port: port, os_pid: os_pid} = _state) do
+    # Kill the Lightpanda process directly with SIGKILL — it ignores SIGTERM.
+    # When a wrapper_script was used, os_pid is the Lightpanda child (not the
+    # wrapper); without a wrapper, fall back to the Port's os_pid.
+    pid_to_kill =
+      os_pid ||
+        case Port.info(port) do
+          info when is_list(info) -> Keyword.get(info, :os_pid)
+          nil -> nil
         end
 
-        Port.close(port)
-
-      nil ->
-        :ok
+    if pid_to_kill do
+      System.cmd("kill", ["-9", to_string(pid_to_kill)], stderr_to_stdout: true)
     end
+
+    # Closing the Port also closes its stdin pipe. When a wrapper_script
+    # is in use, the wrapper's stdin-close handler fires kill -KILL on
+    # Lightpanda — this is the path that cleans up on BEAM kill -9.
+    if Port.info(port) != nil, do: Port.close(port)
 
     :ok
   end

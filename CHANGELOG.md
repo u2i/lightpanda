@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.4-rc.0 — 2026-06-29
+
+- **`Lightpanda.Server` now accepts a `:wrapper_script` option.**
+  When supplied, the server spawns the wrapper (with `:use_stdio`) and
+  passes the Lightpanda binary + args as its arguments, rather than
+  spawning the binary directly.  The wrapper must print `PID: <n>` on
+  stdout so the server can capture the child's OS pid for `kill -9` in
+  `terminate/2`, and must kill the child when its stdin closes.  This
+  allows Lightpanda to be cleaned up even when the BEAM is terminated
+  with SIGKILL — in which case `terminate/2` never runs, but the Port's
+  stdin pipe closes at the OS level and the wrapper fires `kill -KILL`
+  on Lightpanda.  Without `:wrapper_script` behaviour is unchanged.
+  See `priv/run_command.sh` in the [wallabidi](https://github.com/u2i/wallabidi)
+  library for a reference wrapper implementation.
+
 ## 0.3.1 — 2026-05-30
 
 - **Track upstream Lightpanda `v0.3.1`.** Bumped fork release tag to
