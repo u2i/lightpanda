@@ -1,7 +1,7 @@
 defmodule Lightpanda.MixProject do
   use Mix.Project
 
-  @version "0.3.4-rc.0"
+  @version "0.3.6"
   @source_url "https://github.com/u2i/lightpanda"
 
   def project do
@@ -11,7 +11,7 @@ defmodule Lightpanda.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-      description: "Mix tasks for installing and invoking the Lightpanda headless browser (u2i fork build with cookie-on-WS-upgrade fix)",
+      description: "Mix tasks for installing and invoking the Lightpanda headless browser",
       package: package(),
       docs: docs(),
       source_url: @source_url,

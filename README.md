@@ -3,15 +3,11 @@
 Mix tasks for installing and invoking the
 [Lightpanda](https://github.com/lightpanda-io/browser) headless browser.
 
-This package fetches binaries from the
-[u2i fork build](https://github.com/u2i/lightpanda-browser) of
-Lightpanda, which carries an extra patch sending session cookies on the
-WebSocket upgrade request. Without this, cookie-authenticated WS
-endpoints (e.g. Phoenix LiveView) reject the upgrade.
+This package fetches binaries from the official upstream Lightpanda
+releases. The package version tracks the binary version it installs.
 
 The release tag and download URL are baked into the package; bump the
-dep to upgrade. If you need an unpatched upstream binary, depend on a
-different installer.
+dep to upgrade.
 
 ## Installation
 

@@ -5,8 +5,9 @@ defmodule Mix.Tasks.Lightpanda.Install do
       $ mix lightpanda.install
       $ mix lightpanda.install --if-missing
 
-  Installs `#{Lightpanda.release()}` from the u2i fork releases. The
-  release tag is baked into the package; bump the dep to upgrade.
+  Installs `#{Lightpanda.release()}` from the upstream Lightpanda
+  releases. The release tag is baked into the package; bump the dep
+  to upgrade.
 
   ## Options
 

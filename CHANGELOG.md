@@ -1,6 +1,42 @@
 # Changelog
 
-## 0.3.4-rc.0 — 2026-06-29
+## 0.3.6 — 2026-08-04
+
+- **Switched from the u2i fork to official upstream releases.**
+  Binaries now come from
+  [`lightpanda-io/browser`](https://github.com/lightpanda-io/browser)
+  instead of `u2i/lightpanda-browser`. The fork existed solely to
+  carry the cookie-on-WS-upgrade patch, and upstream has since landed
+  equivalent behaviour: `WebSocket.init` writes the session cookie jar
+  onto the upgrade request via `cookie_jar.forRequest`, alongside a
+  `cookies_on_upgrade` regression test. Cookie-authenticated WS
+  upgrades (e.g. Phoenix LiveView) continue to work, so this is not a
+  behaviour change for callers — the fork is simply no longer needed.
+- **Track upstream Lightpanda `0.3.6`.** Picks up upstream `0.3.2`
+  through `0.3.6`, which the fork never tracked. The release tag is
+  pinned explicitly rather than resolved as "latest", because
+  upstream marks its rolling `nightly` release as latest.
+- **Upstream asset naming is unchanged** (`lightpanda-<arch>-<os>`),
+  so the download URL construction and target detection are
+  untouched. No config changes are required.
+- **`Lightpanda.release/0` now returns an upstream tag** (`"0.3.6"`)
+  rather than a fork tag (`"fork-2026-05-30"`). Only affects callers
+  that display or match on this string.
+- **`Lightpanda.Server` accepts a `:wrapper_script` option.**
+  (Previously staged as unreleased `0.3.4-rc.0`.)
+  When supplied, the server spawns the wrapper (with `:use_stdio`) and
+  passes the Lightpanda binary + args as its arguments, rather than
+  spawning the binary directly. The wrapper must print `PID: <n>` on
+  stdout so the server can capture the child's OS pid for `kill -9` in
+  `terminate/2`, and must kill the child when its stdin closes. This
+  allows Lightpanda to be cleaned up even when the BEAM is terminated
+  with SIGKILL — in which case `terminate/2` never runs, but the Port's
+  stdin pipe closes at the OS level and the wrapper fires `kill -KILL`
+  on Lightpanda. Without `:wrapper_script` behaviour is unchanged.
+  See `priv/run_command.sh` in the [wallabidi](https://github.com/u2i/wallabidi)
+  library for a reference wrapper implementation.
+
+## 0.3.4-rc.0 — 2026-06-29 (unreleased)
 
 - **`Lightpanda.Server` now accepts a `:wrapper_script` option.**
   When supplied, the server spawns the wrapper (with `:use_stdio`) and

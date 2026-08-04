@@ -3,15 +3,9 @@ defmodule Lightpanda do
   Lightpanda is an installer and runner for the
   [Lightpanda](https://github.com/lightpanda-io/browser) headless browser.
 
-  This package fetches binaries from the [u2i fork build][u2i] of
-  Lightpanda, which carries an extra patch sending session cookies on
-  the WebSocket upgrade request — required for cookie-authenticated WS
-  endpoints (e.g. Phoenix LiveView). The release tag, download URL,
-  and checksums are baked in; there are no knobs for swapping the
-  source. If you need an unpatched upstream binary, depend on a
-  different installer.
-
-  [u2i]: https://github.com/u2i/lightpanda-browser
+  This package fetches binaries from the official upstream releases.
+  The release tag and download URL are baked in; there are no knobs
+  for swapping the source. Bump the dep to upgrade.
 
   ## Configuration
 
@@ -55,8 +49,10 @@ defmodule Lightpanda do
   require Logger
 
   # The Lightpanda binary release this package tracks. Bump (and
-  # publish a new package version) when a new fork build is cut.
-  @release "fork-2026-05-30"
+  # publish a new package version) when upstream cuts a release.
+  # Pinned to an explicit tag rather than resolved as "latest" —
+  # upstream marks its rolling `nightly` release as latest.
+  @release "0.3.6"
 
   @doc """
   Returns the release tag of the Lightpanda binary this package
@@ -169,7 +165,7 @@ defmodule Lightpanda do
   end
 
   @doc """
-  Installs the Lightpanda binary by downloading it from the u2i fork
+  Installs the Lightpanda binary by downloading it from the upstream
   release for the configured `@release` tag.
   """
   def install do
@@ -194,7 +190,7 @@ defmodule Lightpanda do
   end
 
   defp release_url(target) do
-    "https://github.com/u2i/lightpanda-browser/releases/download/" <>
+    "https://github.com/lightpanda-io/browser/releases/download/" <>
       "#{@release}/lightpanda-#{target}"
   end
 
